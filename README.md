@@ -1,36 +1,63 @@
-# Road Rash BIKESPEC.RSC Editor
+# Road Rash BIKESPEC.RSC Editor (C# / WinForms)
 
-Offline editor for the motorcycle specification file used by **Road Rash**.
+A small offline Windows editor for the Road Rash `BIKESPEC.RSC` motorcycle data file.
 
-## Current reverse-engineered format
+## Features
 
-The editor currently uses the binary layout confirmed from `BIKESPEC.RSC` analysis:
+- C# WinForms application for Windows 10/11.
+- Opens the 6,276-byte (`0x1884`) `BIKESPEC.RSC` format used by this reverse-engineering project.
+- Select any of the 15 motorcycle slots from a drop-down list.
+- Edit all 89 known 32-bit values for one bike, switch to another bike, and keep all unsaved edits in memory.
+- Shows each field's relative offset, working name/group, per-bike factory/reference default, and the range used by all 15 reconstructed factory profiles.
+- `Save` writes all edited bikes back to the file while preserving the non-payload bytes.
+- `Save As...` creates a separate edited RSC.
+- Automatic first-open backup: `BIKESPEC.RSC.original.bak` (created only once and never overwritten).
+- Automatic pre-save backup: `BIKESPEC.RSC.lastsave.bak` (updated before every in-place save).
+- `Restore selected bike` restores one motorcycle to its embedded reconstructed factory/reference profile.
+- `Restore ALL factory defaults` restores all 15 embedded profiles in memory.
+- `Restore original backup` directly loads the automatic first-open backup.
+- `Restore backup...` can load any compatible `.bak` / `.rsc` backup.
+- `Revert unsaved` returns to the last opened/saved state.
+- Values outside the known factory range are highlighted; very large values trigger a warning before Save.
 
-- File size expected: **6,276 bytes** (`0x1884`)
-- Header: **576 bytes** (`0x240`)
-- Physical bike slots: **15**
-- Physical slot stride: **380 bytes** (`0x17C`)
-- Editable payload per slot: **356 bytes** (`0x164`)
-- Payload interpretation: **89 little-endian signed 32-bit integers**
-- Padding after each payload: **24 bytes** (`0x18`)
+## Binary layout used
 
-The editor preserves the header and padding bytes and only replaces the 89 editable `int32` values in each selected bike slot.
+- File size: `0x1884` = 6,276 bytes
+- Header / first physical slot: `0x240`
+- Physical slot stride: `0x17C` = 380 bytes
+- 15 physical slots
+- Editable payload starts at `slot + 0x04`
+- Editable payload size: `0x164` = 356 bytes
+- 89 values × signed 32-bit little-endian integers
 
-## Usage
+Only the 356-byte payload is rewritten for each motorcycle. The rest of the loaded file is preserved.
 
-1. Open `index.html` in Edge/Chrome on Windows 11.
-2. Click **Open BIKESPEC.RSC**.
-3. Select bike slot 1–15.
-4. Edit the values.
-5. Click **Apply values to memory**.
-6. Click **Save As...** to download the modified `BIKESPEC.RSC`.
+## Factory defaults
 
-The original file is not overwritten by the browser.
+The embedded defaults are the 15 reconstructed reference profiles recovered during the `BIKESPEC.RSC` / `ROADRASH.EXE` reverse-engineering work. The analyzed RSC sample itself contained 15 copies of the CORSAIR Super #7 payload, so the distinct 15-bike reference values came from the recovered reference data rather than from that duplicated sample file.
 
-## Notes
+The application does **not** contain or distribute the original Road Rash game data file.
 
-Field names are initially shown as `Field 00` … `Field 88` together with their absolute and record-relative offsets. As individual meanings are confirmed from `ROADRASH.EXE` / `RASHME.EXE` reverse engineering, they can be renamed in `fields.js` without changing the binary reader/writer.
+## Build
 
-## Status
+Open `RoadRashBikeSpecEditor/RoadRashBikeSpecEditor.csproj` in Visual Studio 2022 with the .NET 8 SDK, or run:
 
-This repository is a reconstruction/reverse-engineering tool. It does not include original Road Rash game data.
+```powershell
+dotnet build .\RoadRashBikeSpecEditor\RoadRashBikeSpecEditor.csproj -c Release
+```
+
+To create a standalone Windows x64 single-file EXE:
+
+```powershell
+dotnet publish .\RoadRashBikeSpecEditor\RoadRashBikeSpecEditor.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o .\publish
+```
+
+A GitHub Actions workflow also builds the standalone Windows x64 version automatically.
+
+## Safety / rollback workflow
+
+1. Open the game's `BIKESPEC.RSC`.
+2. The editor automatically creates `BIKESPEC.RSC.original.bak` if it does not already exist.
+3. Edit one or more bikes and test in-game.
+4. Before each normal Save, the current file is copied to `BIKESPEC.RSC.lastsave.bak`.
+5. If the tuning becomes unplayable, use `Restore selected bike`, `Restore ALL factory defaults`, `Restore original backup`, or `Restore backup...` and then Save.
